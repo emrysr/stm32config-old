@@ -1,24 +1,120 @@
 "use strict";
 
+
+Vue.component("modal", {
+    template: "#modal",
+    props: ['gridData','selected'],
+    data: function (){
+        return {
+            animating: false,
+            loading: false
+        }
+    },
+    computed: {
+        isShown: function() {
+            if(this.entry) {
+                return this.entry !== null
+            }
+        },
+        entry: function() {
+            var match;
+            for(let n in this.gridData) {
+                let entry = this.gridData[n];
+                if (this.selected && (entry.id.toString() === this.selected.toString())) {
+                    match = entry;
+                }
+            }
+            return match;
+        }
+    },
+    methods: {
+        close: function(event) {
+            var vm = this
+            this.animating = true;
+            vm.$emit('modal:hide', event)
+            setTimeout(function(){
+                vm.$emit('modal:hidden', event)
+                vm.animating = false;
+            }, 100)
+        },
+        show: function(event) {
+            this.animating = true;
+            var vm = this;
+            vm.$emit('modal:show', event)
+            setTimeout(function(){
+                vm.$emit('modal:shown', event)
+                vm.animating = false;
+            }, 300)
+        },
+        plot: function(event) {
+            if(event.target.open) {
+                var vm = this;
+                this.loading = true;
+                vm.$emit('loading',event)
+                setTimeout(function(){
+                    vm.loading = false;
+                    vm.$emit('loaded',event)
+                    plot([ [1, 3], [2, 14.01], [3.5, 3.14] ]);
+                },1000)
+            } else {
+                plot([]);
+            }
+        },
+        save: function () {
+            //fields auto save
+            //todo: 
+            
+        }
+    },
+    created: function() {
+        this.animating = this.selected == ''
+    }
+})
+
 var app = new Vue({
     el: "#app",
     data: {
         wait: 800, // time to wait before sending data
         timeouts: {},
-        classes: { // css class names
+        classNames: { // css class names
             success: 'success',
             error: 'error',
             warning: 'warning',
             fade: 'fade',
             buttonActive: 'btn-primary',
-            button: 'btn-light'
+            button: 'btn-light',
+            selectedRow: 'info'
         },
-        selected: '5',
+        loading: false,
+        selected: document.currentScript.dataset.selected, // passed as [data-selected=""] in the <script> tag that loads this page
         searchQuery: '',
         gridData: [],
         gridColumns: { // each gridData[] item property has a matching gridColumns property name
-            id: {
-                sort: true
+            view: {
+                icon: '#icon-keyboard_arrow_right',
+                noHeader: true,
+                link: true,
+                title: _('View this stm32config'),
+                handler: function(event, item, property, value, success, error, always) {
+                    try {
+                        let vm = app;
+                        event.preventDefault();
+                        // toggle on/off if already selected
+                        if(vm.selected == item.id) {
+                            vm.selected = '';
+                        } else {
+                            vm.selected = parseInt(item.id);
+                        }
+
+                    } catch (error) {
+                        _debug.error (_('JS Error'), property, error, arguments);
+                    }
+                },
+                messages: {
+                    success: _('Saved'),
+                    error: _('Error'),
+                    always: _('Done')
+                }
             },
             name: {
                 sort: true,
@@ -55,30 +151,38 @@ var app = new Vue({
                 label: 'RP',
                 sort: true,
                 noHeader: true,
-                title: _('realPower')
+                title: _('Real Power (RP) as input'),
+                handler: function(event, item, property, value, success, error, always) {
+                    item[property] = !item[property]
+                }
             },
             actualPower: {
                 label: 'AP',
                 sort: true,
                 noHeader: true,
-                title: _('actualPower')
+                title: _('Actual Power (AP) as input'),
+                handler: function(event, item, property, value, success, error, always) {
+                    item[property] = !item[property]
+                }
             },
             current: {
                 label: 'I',
                 sort: true,
                 noHeader: true,
-                title: _('Current')
-            },
-            view: {
-                icon: '#icon-arrow_forward',
-                noHeader: true,
-                link: true,
-                title: _('View this stm32config')
+                title: _('Current (I) as input'),
+                handler: function(event, item, property, value, success, error, always) {
+                    item[property] = !item[property]
+                },
+                messages: {
+                    success: _('Current Input Saved'),
+                    error: _('Error, Current Input Not Saved'),
+                    always: _('Done')
+                }
             }
         },
         status: {
-            message: '',
-            title: ''
+            message: 'ready',
+            title: 'loading...'
         }
     },
     watch: {
@@ -92,13 +196,31 @@ var app = new Vue({
                 }
             },
             deep: true
+        },
+        loading: function(newVal) {
+            console.log(this.status,'emrys');
+            // this.status.title = newVal ? 'Loading...': '';
         }
     },
     mounted: function () {
         this.reload();
     },
+    created: function () {
+        _debug.log('list app created()')
+        // pass on root event handler to relevant function
+        this.$root.$on('event:handler', function(event, item, property, value, success, error, always) {
+            var success_func = function() {
+                if (typeof success === 'function') success.call(this, arguments);
+                item[property] = value;// set the global dataStore
+            }
+            if(this.gridColumns[property] && this.gridColumns[property].handler && typeof this.gridColumns[property].handler === 'function') {
+                this.gridColumns[property].handler(event, item, property, value, success_func, error, always);
+            }
+        });
+    },
     methods: {
         reload: function () {
+            this.loading = true;
             // on load request server data
             let vm = this;
             vm.Notify(_('Loading'), true);
@@ -298,7 +420,7 @@ var app = new Vue({
          */
         Notify: function(status, persist) {
             // display message to user
-            this.status = status
+            this.status.title = status
             var vm = this
             // stop previous delay
             window.clearTimeout(this.statusTimeout);
@@ -307,13 +429,24 @@ var app = new Vue({
                 this.statusTimeout = window.setTimeout(function(){
                     // reset to show the total
                     console.log('Notify()', vm.status);
-                    vm.status = {message: vm.status.total};
+                    vm.status = {message: vm.status + " found"};
                 }, this.wait * 3);
             }
+        }
+    },
+    computed: {
+        modal: function() {
+            var modal = {};
+            modal.show = true;
+            modal.classList = {
+                'hide': this.selected == '',
+                'fade': this.selected == ''
+            }
+            return modal
         }
     }
 })
 
-app.reload = function() {
-    stm32config.list()
-}
+// app.reload = function() {
+//     stm32config.list()
+// }

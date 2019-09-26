@@ -1,6 +1,5 @@
 <div class="container w-auto">
     <div id="app">
-
         <div class="alert" :class="{'alert-warning':true}" v-if="status.message" v-cloak>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                 <span aria-hidden="true">&times;</span>
@@ -12,7 +11,7 @@
         <div class="d-flex justify-content-between my-3">
             <h2 class="m-0">
                 <?php echo _('STM32 Config') ?> <svg class="icon text-info"><use xlink:href="#icon-stm32"></use></svg> 
-                <a v-if="gridData.length === 0" href="<?php echo $path ?>" class="btn btn-success btn-small" :title="_('Reload') + '&hellip;'" @click.prevent="reload()">
+                <a v-if="gridData.length === 0" href="<?php echo $path ?>stm32config" class="btn btn-success btn-small" :title="_('Reload') + '&hellip;'" @click.prevent="reload()">
                 <svg class="icon"><use xlink:href="#icon-spinner11"></use></svg></a>
             </h2>
             <form v-if="gridData.length > 0" id="search" class="form-inline m-0">
@@ -26,21 +25,28 @@
             </form>
         </div>
         <!-- custom component to display grid data-->
-        <grid-data-container :grid-data="gridData"
+        <grid-data :grid-data="gridData"
             :columns="gridColumns"
             :filter-key="searchQuery"
             :caption="status.title"
-            :class-names="classes"
+            :class-names="classNames"
+            :selected="selected"
             @update:total="status=arguments[0]"
-        ></grid-data-container>
+        ></grid-data>
 
+        <modal v-if="selected!==''":grid-data="gridData" 
+            :selected="selected" 
+            @modal:hide = "selected = ''"
+            @modal:hidden = ""
+            @modal:show = ""
+            @modal:shown = ""
+            @loading = "loading = true"
+            @loaded = "loading = false"
+        ></modal>
 
     </div>
 
 </div><!-- eof .container -->
-
-<!-- vuejs templates -->
-<?php include_once("Lib/gridjs/grid.html"); ?>
 
 <script>
 /**
@@ -69,22 +75,68 @@ function getTranslations(){
 }
 </script>
 
+<script type="text/x-template" id="modal">
+    <!-- Modal -->
+    <div>
+        <div v-if="entry" class="modal" :class="{'fade': animating || !isShown, 'in': isShown}" tabindex="-1" role="dialog">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true" @click.prevent="close">×</button>
+                <h3>More Details {{entry.name}}</h3>
+                <div v-if="loading">
+                    <div class="loader spinner">
+                        <svg class="icon"><use xlink:href="#icon-reload"></use></svg>
+                    </div>
+                    <p>{{loading ? 'Loading...': ''}}</p>
+                </div>
+            </div>
+            <div class="modal-body">
+                <details @toggle="plot">
+                    <summary>Request sample</summary>
+                    <div id="graph" style="width:50%;height:100px;margin: auto"></div>
+                </details>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" data-dismiss="modal" aria-hidden="true" @click.prevent="close">Close</button>
+                <button class="btn btn-primary" @click.prevent="save">Save changes</button>
+            </div>
+        </div>
+        <div v-if="isShown" @click="close" class="modal-backdrop in"></div>
+    </div>
+</script>
+<script>
+    function plot(data){
+        $.plot($("#graph"), data);
+    }
+</script>
+
+<link href="<?php echo $path; ?>Lib/bootstrap-datetimepicker-0.0.11/css/bootstrap-datetimepicker.min.css" rel="stylesheet">
+<link href="<?php echo $path; ?>Modules/graph/graph.css?v=<?php echo $v; ?>" rel="stylesheet">
+
+<script src="<?php echo $path;?>Lib/flot/jquery.flot.min.js"></script>
+<script src="<?php echo $path;?>Lib/flot/jquery.flot.resize.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
 <!-- debug code -->
 <script>
-    var _DEBUG_ = true;
-    Vue.config.productionTip = true;
-    // filter available to all compenonets
+    _SETTINGS.showErrors = false
+
+    if(!_SETTINGS.showErrors) {
+        Vue.config.productionTip = true;
+    }
+
+    // filter to capitalize strings. usage: {{ text | captialize }}
     Vue.filter('capitalize', function(str) {
         return str.charAt(0).toUpperCase() + str.slice(1);
     });
+
     var _debug = {
         log: function(){
-            if(typeof _DEBUG_ !== 'undefined' && _DEBUG_) {
+            if(!_SETTINGS.showErrors) {
                 console.trace.apply(this,arguments);
             }
         },
         error: function(){
-            if(typeof _DEBUG_ !== 'undefined' && _DEBUG_) {
+            if(!_SETTINGS.showErrors) {
                 console.error('Error')
                 console.trace.apply(this, arguments);
             }
@@ -92,12 +144,9 @@ function getTranslations(){
     }
 </script>
 
-<?php 
-// serverside selection
-if(!empty($id)): ?>
-<script>
-    SELECTED = "<?php echo $id ?>";
-</script>
-<?php endif; ?>
+<!-- gridjs js and templates -->
+<?php //echo sprintf('<script src="%s%s"></script>', $path, "Lib/vue.min.js"); ?>
 <?php echo sprintf('<script src="%s%s?v=%s"></script>', $path, "Lib/gridjs/grid.js", $v); ?>
-<?php echo sprintf('<script src="%s%s?v=%s"></script>', $path, "Modules/stm32config/Views/js/list.js", $v); ?>
+<?php include_once("Lib/gridjs/grid.html"); ?>
+<!-- vuejs templates -->
+<?php echo sprintf('<script src="%s%s?v=%s" data-selected="%s"></script>', $path, "Modules/stm32config/Views/js/list.js", $v, $id); ?>

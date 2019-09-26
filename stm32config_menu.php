@@ -33,4 +33,12 @@ $menu['includes']['icons'][] = <<<ICONS
         <!-- <title>checkbox-checked</title> -->
         <path d="M28 0h-24c-2.2 0-4 1.8-4 4v24c0 2.2 1.8 4 4 4h24c2.2 0 4-1.8 4-4v-24c0-2.2-1.8-4-4-4zM14 24.828l-7.414-7.414 2.828-2.828 4.586 4.586 9.586-9.586 2.828 2.828-12.414 12.414z"></path>
     </symbol>
+    <symbol id="icon-keyboard_arrow_down" viewBox="0 0 32 32">
+        <!-- <title>keyboard_arrow_down</title> -->
+        <path d="M9.875 10.438l6.125 6.125 6.125-6.125 1.875 1.875-8 8-8-8z"></path>
+    </symbol>
+    <symbol id="icon-keyboard_arrow_right" viewBox="0 0 32 32">
+        <!-- <title>keyboard_arrow_right</title> -->
+        <path d="M11.438 21.813l6.125-6.125-6.125-6.125 1.875-1.875 8 8-8 8z"></path>
+    </symbol>
 ICONS;

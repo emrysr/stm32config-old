@@ -32,8 +32,6 @@ function stm32config_controller()
     if ($route->format === 'html') {
         if ($route->action === '' || $route->action === 'view') {
             $result = sprintf('<link href="%s%s?v=%s" rel="stylesheet">', $path, "Modules/stm32config/Views/css/stm32config.css", $v);
-            // $result .= sprintf('<script src="%s%s"></script>', $path, "Lib/vue.min.js");
-            $result .= sprintf('<script src="%s"></script>', "https://cdn.jsdelivr.net/npm/vue/dist/vue.js");
             $result .= sprintf('<script src="%s%s?v=%s"></script>', $path, "Modules/stm32config/Views/js/stm32config.js", $v);
             $result .= view("Modules/stm32config/Views/list.php", array('path' => $path, 'v' => $v, 'id' => get('id')));
             return $result;
