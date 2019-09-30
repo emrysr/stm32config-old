@@ -156,13 +156,51 @@ Vue.component("modal", {
             //fields auto save
             //todo: 
         },
-        get: function(prop) {
+        get: function(prop,id) {
             // return api response from getting property prop
-            return 'OK 200';
+            this.loading = true;
+            var vm = this;
+            this.$emit('loading');
+            var request = stm32config.get(prop,id);
+            request.done(function(response) {
+                // console.log('done', request.url, response.data);
+                vm[prop] = moment.unix(response.data.value);
+            });
+            request.fail(function(xhr, response) {
+                console.error(response);
+            });
+            request.always(function() {
+                vm.loading = false;
+                vm.$emit('loaded');
+            });
         },
-        set: function(prop) {
+        set: function(prop,id,value) {
             // return api response from setting property prop
-            return 'OK 200';
+            this.loading = true;
+            var vm = this;
+            this.$emit('loading');
+            var request = stm32config.set({
+                properties: [prop],
+                values: [value],
+                id: id
+            });
+            request.done(function(response,status,xhr) {
+                // console.log('done', response, status, xhr);
+                vm[prop] = moment.unix(response.data.value);
+            });
+            request.fail(function(xhr, response) {
+                console.error(response);
+            });
+            request.always(function() {
+                vm.loading = false;
+                vm.$emit('loaded');
+            });
+        },
+        set_abc: function() {
+            this.set('abc', '1', moment().unix())
+        },
+        get_abc: function() {
+            this.get('abc')
         },
         getLatestSample: function() {
             if(!this.samples && !this.selected && !this.samples[this.selected]) return false;

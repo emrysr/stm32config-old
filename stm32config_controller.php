@@ -43,6 +43,17 @@ function stm32config_controller()
         if ($route->action === 'list') {
             return $config->getAll();
         }
+        elseif ($route->action === 'set') {
+            $prop = 'time';
+            $id = 1;
+            $value = time();
+            return $config->set($prop,$id,$value);
+        }
+        elseif ($route->action === 'get') {
+            $prop = 'time';
+            $id = 1; 
+            return $config->get($prop,$id);
+        }
     }
     return array('content' => $result);
 }

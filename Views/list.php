@@ -90,8 +90,8 @@ function getTranslations(){
                         <div class="col-6">
                             <div class="card">
                                 <form>
-                                    <button class="btn" @click.prevent="set('abc', new Date())">SEND VALUE</button>
-                                    <code>{{xyz | time}}</code>
+                                    <button class="btn" @click.prevent="set_abc()">SEND VALUE</button>
+                                    <code>{{abc | time}}</code>
                                 </form>
                             </div>
                         </div>

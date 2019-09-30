@@ -26,16 +26,26 @@ interface RequestFactoryInterface
     public function createRequest(string $method, $uri): RequestInterface;
 }
 
+
+
 /**
  * STM32 Config Methods
  */
 class Stm32Config
 {
+    /**
+     * test to ensure all is ready
+     */
     public function __construct()
     {
         $this->ready = true;
     }
 
+    /**
+     * list all items for list page
+     * 
+     * @return array
+     */
     public function getAll()
     {
         return array(
@@ -49,8 +59,133 @@ class Stm32Config
         );
     }
 
-    public function get()
+    /**
+     * get the property values of an item by id
+     *
+     * @param object $params {properties,id}
+     * @return void
+     */
+    public function get($params)
     {
-        return "list";
+        global $route;
+        $id = $params['id'];
+        $properties = $params['properties'];
+        $values = array();
+
+        /*
+        ------------------
+        put stm32 api code here to set the $values array
+        ------------------
+        eg:-
+        $item = $this->send("GET $id");
+        $values[$prop] = $item[$prop];
+        */
+        
+        // fake the result until STM32 api created
+        foreach($properties as $prop) {
+            $values[] = time();
+        }
+        return array(
+            'success' => true,
+            'req' => array (
+                'url' => $route->controller,
+                'action' => $route->action,
+                'params' => $params
+            ),
+            'data' => array (
+                'id'=> $id,
+                'properties'=> $properties,
+                'values' => $values
+            )
+        );
+    }
+    
+    /**
+     * set the property values of an item by id
+     *
+     * @param object $params {properties,values,id}
+     * @return void
+     */
+    public function set($params)
+    {
+        global $route;
+        $id = $params['id'];
+        $properties = $params['properties'];
+        $values = $params['values'];
+        return array(
+            'success' => true,
+            'req' => array (
+                'url' => $route->controller,
+                'action' => $route->action,
+                'params' => $params
+            ),
+            'data' => array (
+                'id'=> $id,
+                'properties'=> $properties,
+                'values' => $values
+            )
+        );
+    }
+
+// python calling functions
+    private function send($params) {
+        return `python stm32config.py fetch $params`;
+    }
+}
+
+
+class Stm32
+{
+    public function __construct()
+    {
+        $this->connected = false;
+        $this->ready = true;
+        $this->connection = false;
+        $this->api = 'stm32api.py';
+    }
+    /**
+     * get connection id
+     *
+     * @return void
+     */
+    private function connect()
+    {
+        // connect to STM32 CHIP
+        $this->connection = `python $this->api connect`;
+        return $this->connection;
+    }
+    public function set($params) {
+        if(!$this->connection) {
+            $this->connect();
+        }
+        // @todo: while loop to test for connection until connected
+
+        $id = $params['id'];
+        $properties = $params['properties'];
+        $values = $params['values'];
+        $responses = array();
+
+        // loop through multiple set requests as single requests;
+        foreach ($properties as $index=>$property) {
+            $value = $values[$index];
+            $responses[] = `python $this->api SET $this->connection $property $value`;
+        }
+        return $responses;
+    }
+    public function get($params) {
+        if(!$this->connection) {
+            $this->connect();
+        }
+        // @todo: while loop to test for connection until connected
+
+        $id = $params['id'];
+        $properties = $params['properties'];
+        $responses = array();
+
+        // loop through multiple set requests as single requests;
+        foreach ($properties as $index=>$property) {
+            $responses[] = `python $this->api GET $this->connection $property`;
+        }
+        return $responses;
     }
 }

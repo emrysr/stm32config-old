@@ -1,17 +1,28 @@
 
 var stm32config = {
-
+    /**
+     * add new item
+     * @return {object} promise
+     */
     add: function(){
         return stm32config._fetch(path + "stm32config/create.json");
     },
-  
+
+    /**
+     * delete item by id
+     * @param {string|int} id of item to be removed
+     * @return {object} ajax promise
+     */
     remove: function(id){
         return stm32config._fetch({
             url: path + "stm32config/delete.json",
             data: {id: id}
         });
     },
-
+    /**
+     * get all items
+     * @return {object} ajax promise
+     */
     list: function(){
         let url = path + "stm32config/list.json";
         let options = {}
@@ -19,37 +30,33 @@ var stm32config = {
         promise.url = url;
         return promise;
     },
-
-    set: function(column, id, value){
-        var fields = {} 
-        fields[column] = value;
+    /**
+     * set new values for properites of an item
+     * @param {object} options {properties,values,id}
+     * @return {object} ajax promise
+     */
+    set: function(options) {
         return stm32config._fetch({
             url: path + "stm32config/set.json",
             data: {
                 id: id,
-                fields: JSON.stringify(fields)
+                properties: JSON.stringify(options.properties),
+                values: JSON.stringify(options.values),
             }
         });
     },
-
-    setcontent: function(id, content, height){
-        // call the stm32config/setcontent api endpoint and return the callback queue
+    /**
+     * get a single property of an item
+     * @param {object} options {properties,id}
+     * @return {object} ajax promise
+     */
+    get: function(options){
         return stm32config._fetch({
-            type: "POST",
-            url :  path+"stm32config/setcontent.json",
-            data : {
+            url: path + "stm32config/set.json",
+            data: {
                 id: id,
-                content: encodeURIComponent(content),
-                height: height
-            },
-            dataType: 'json'
-        });
-    },
-  
-    clone: function(id) {
-        return stm32config._fetch({
-            url: path + "stm32config/clone.json",
-            data: {id: id}
+                properties: JSON.stringify(options.properties)
+            }
         });
     },
 
