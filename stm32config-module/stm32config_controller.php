@@ -32,7 +32,7 @@ function stm32config_controller()
     if ($route->format === 'html') {
         if ($route->action === '' || $route->action === 'view') {
             $result = sprintf('<link href="%s%s?v=%s" rel="stylesheet">', $path, "Modules/stm32config/Views/css/stm32config.css", $v);
-            $result .= sprintf('<script src="%s%s?v=%s"></script>', $path, "Modules/stm32config/Views/js/stm32config.js", $v);
+            $result .= sprintf('<script src="%s%s?v=%s"></script>', $path, "Modules/stm32config/Lib/stm32config.js", $v);
             $result .= view("Modules/stm32config/Views/list.php", array('path' => $path, 'v' => $v, 'id' => get('id')));
             return $result;
         }
@@ -44,10 +44,15 @@ function stm32config_controller()
             return $config->getAll();
         }
         elseif ($route->action === 'set') {
-            $prop = 'time';
-            $id = 1;
-            $value = time();
-            return $config->set($prop,$id,$value);
+            $properties = json_decode(get('properties'));
+            $id = get('id');
+            $values = json_decode(get('values'));
+            $params = array(
+                'properties' => $properties,
+                'id' => $id,
+                'values' => $values
+            );
+            return $config->set($params);
         }
         elseif ($route->action === 'get') {
             $prop = 'time';

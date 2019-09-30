@@ -39,7 +39,7 @@ var stm32config = {
         return stm32config._fetch({
             url: path + "stm32config/set.json",
             data: {
-                id: id,
+                id: options.id,
                 properties: JSON.stringify(options.properties),
                 values: JSON.stringify(options.values),
             }

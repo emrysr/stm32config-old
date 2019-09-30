@@ -26,8 +26,6 @@ interface RequestFactoryInterface
     public function createRequest(string $method, $uri): RequestInterface;
 }
 
-
-
 /**
  * STM32 Config Methods
  */
@@ -39,6 +37,7 @@ class Stm32Config
     public function __construct()
     {
         $this->ready = true;
+        $this->stm32api = null;
     }
 
     /**
@@ -109,83 +108,32 @@ class Stm32Config
     public function set($params)
     {
         global $route;
+        require "Modules/stm32config/Lib/stm32api.php";
+        $this->stm32api = new Stm32api();
+var_dump($this->stm32api);
+exit('dave');
         $id = $params['id'];
         $properties = $params['properties'];
         $values = $params['values'];
+
+        $api_response = $this->stm32api->set(array(
+            'id' => $id,
+            'properties' => $properties,
+            'values' => $values
+        ));
         return array(
             'success' => true,
             'req' => array (
-                'url' => $route->controller,
+                'controller' => $route->controller,
                 'action' => $route->action,
                 'params' => $params
             ),
-            'data' => array (
-                'id'=> $id,
-                'properties'=> $properties,
-                'values' => $values
-            )
+            'data' => $api_response
         );
     }
 
 // python calling functions
     private function send($params) {
-        return `python stm32config.py fetch $params`;
-    }
-}
-
-
-class Stm32
-{
-    public function __construct()
-    {
-        $this->connected = false;
-        $this->ready = true;
-        $this->connection = false;
-        $this->api = 'stm32api.py';
-    }
-    /**
-     * get connection id
-     *
-     * @return void
-     */
-    private function connect()
-    {
-        // connect to STM32 CHIP
-        $this->connection = `python $this->api connect`;
-        return $this->connection;
-    }
-    public function set($params) {
-        if(!$this->connection) {
-            $this->connect();
-        }
-        // @todo: while loop to test for connection until connected
-
-        $id = $params['id'];
-        $properties = $params['properties'];
-        $values = $params['values'];
-        $responses = array();
-
-        // loop through multiple set requests as single requests;
-        foreach ($properties as $index=>$property) {
-            $value = $values[$index];
-            $responses[] = `python $this->api SET $this->connection $property $value`;
-        }
-        return $responses;
-    }
-    public function get($params) {
-        if(!$this->connection) {
-            $this->connect();
-        }
-        // @todo: while loop to tcreateRequestest for connection until connected
-
-        $id = $params['id'];
-        $properties = $params['properties'];
-        $responses = array();
-
-        // loop through multiple set requests as single requests;
-        foreach ($properties as $index=>$property) {
-            $responses[] = `python $this->api GET $this->connection $property`;
-        }
-        return $responses;
+        return $this->stm32api->get($params);
     }
 }
