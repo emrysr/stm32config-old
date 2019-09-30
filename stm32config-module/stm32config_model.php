@@ -176,7 +176,7 @@ class Stm32
         if(!$this->connection) {
             $this->connect();
         }
-        // @todo: while loop to test for connection until connected
+        // @todo: while loop to tcreateRequestest for connection until connected
 
         $id = $params['id'];
         $properties = $params['properties'];
