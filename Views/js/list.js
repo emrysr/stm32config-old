@@ -3,11 +3,26 @@
 
 Vue.component("modal", {
     template: "#modal",
-    props: ['gridData','selected'],
-    data: function (){
+    props: ['gridData','selected','samples'],
+    data: function () {
         return {
             animating: false,
-            loading: false
+            loading: false,
+            xyz: new Date,// used as stm write response
+            abc: new Date// used as stm read response
+        }
+    },
+    filters: {
+        // format date to local time using the moment.js library
+        formatDate: function(date) {
+            if (!date) return '';
+            return moment(date).fromNow();
+            // var m = moment(date);
+            // return m.diff(moment(), 'minutes') > 0 ? m.fromNow() : '';
+        },
+        time: function(date) {
+            if (!date) return '';
+            return moment(date).format('LTS');
         }
     },
     computed: {
@@ -28,6 +43,9 @@ Vue.component("modal", {
         }
     },
     methods: {
+        mouseOver: function(event) {
+            event.target.title = this.$options.filters.formatDate(this.getLatestSample().lastUpdate);
+        },
         close: function(event) {
             var vm = this
             this.animating = true;
@@ -46,24 +64,117 @@ Vue.component("modal", {
                 vm.animating = false;
             }, 300)
         },
-        plot: function(event) {
-            if(event.target.open) {
-                var vm = this;
-                this.loading = true;
-                vm.$emit('loading',event)
-                setTimeout(function(){
-                    vm.loading = false;
-                    vm.$emit('loaded',event)
-                    plot([ [1, 3], [2, 14.01], [3.5, 3.14] ]);
-                },1000)
+        plot: function () {
+            var selector = '#modal-graph'
+            var latest =  this.getLatestSample();
+            if(latest.success && document.querySelector(selector)) {
+                // call jquery addon with the correct args
+                plot(selector, latest.dataset);
             } else {
-                plot([]);
+                console.log('no data to plot or no placeholder')
+            }
+        },
+        getMin: function() {
+            if(!this.samples[this.selected]) return 0;
+            var min;
+            var dataset = this.samples[this.selected].dataset[0];
+            for(var n in dataset) {
+                var point = dataset[n][1]
+                if (!min || point < min) {
+                    min = point
+                }
+            }
+            return min.toFixed(3)
+        },
+        getMax: function() {
+            if(!this.samples[this.selected]) return 0;
+            var max;
+            var dataset = this.samples[this.selected].dataset[0];
+            for(var n in dataset) {
+                var point = dataset[n][1];
+                if (!max || point > max) {
+                    max = point
+                }
+            }
+            return max.toFixed(3)
+        },
+        getMean: function() {
+            if(!this.samples[this.selected]) return 0;
+            var points = [];
+            var sum = 0;
+            var dataset = this.samples[this.selected].dataset[0];
+            for(var n in dataset) {
+                var point = dataset[n][1];
+                points.push(point);
+                sum += point;
+            }
+            return (sum/points.length).toFixed(3)
+        },
+        reload: function(event) {
+            // @todo: ajax request to api
+            var vm = this;
+            var dropdown = event.target.parentNode;
+            // simulate ajax api request
+            this.loading = true;
+            this.$emit('loading', event);
+
+            setTimeout(function(){
+                vm.loading = false;
+                vm.$emit('loaded', event);
+                // cache api responses
+                if (typeof vm.samples[vm.selected] !== 'object') {
+                    vm.samples[vm.selected] = {}
+                }
+                var d1 = [];
+                for (var i = 0; i < 14; i += 0.5) {
+                    d1.push([i, Math.sin(i+=Math.random())]);
+                }
+                vm.samples[vm.selected] = {
+                    dataset: [d1],
+                    lastUpdate: new Date(),
+                    success: true
+                }
+                dropdown.open = true;
+                vm.plot();
+            }, 500)
+        },
+        expand: function(event) {
+            var dropdown = event.target.parentNode;
+            if(!dropdown.open) {
+                if(!this.isSampleLoaded()) {
+                    this.reload(event)
+                } else {
+                    // already loaded do nothing but expand
+                    dropdown.open = true;
+                    this.plot();
+                }
+            } else {
+                dropdown.open = false;
             }
         },
         save: function () {
             //fields auto save
             //todo: 
-            
+        },
+        get: function(prop) {
+            // return api response from getting property prop
+            return 'OK 200';
+        },
+        set: function(prop) {
+            // return api response from setting property prop
+            return 'OK 200';
+        },
+        getLatestSample: function() {
+            if(!this.samples && !this.selected && !this.samples[this.selected]) return false;
+            return this.samples[this.selected] || {success: false};
+        },
+        isSampleLoaded: function() {
+            var latest = this.getLatestSample()
+            if(typeof latest !== 'undefined') {
+                return latest.success === true;
+            } else {
+                return false;
+            }
         }
     },
     created: function() {
@@ -88,6 +199,7 @@ var app = new Vue({
         loading: false,
         selected: document.currentScript.dataset.selected, // passed as [data-selected=""] in the <script> tag that loads this page
         searchQuery: '',
+        samples: {},
         gridData: [],
         gridColumns: { // each gridData[] item property has a matching gridColumns property name
             view: {
@@ -182,7 +294,7 @@ var app = new Vue({
         },
         status: {
             message: 'ready',
-            title: 'loading...'
+            title: _('Loading...')
         }
     },
     watch: {
@@ -198,8 +310,10 @@ var app = new Vue({
             deep: true
         },
         loading: function(newVal) {
-            console.log(this.status,'emrys');
-            // this.status.title = newVal ? 'Loading...': '';
+            if (typeof this.status !== 'object') {
+                this.status = {title: this.status}
+            }
+            this.status.title = newVal ? _('Loading...'): '';
         }
     },
     mounted: function () {
@@ -223,7 +337,7 @@ var app = new Vue({
             this.loading = true;
             // on load request server data
             let vm = this;
-            vm.Notify(_('Loading'), true);
+            vm.Notify(_('Loading...'), true);
             stm32config.list().then(function(data){
                 // handle success - populate gridData[] array
                 // add urls for edit and view
@@ -420,7 +534,10 @@ var app = new Vue({
          */
         Notify: function(status, persist) {
             // display message to user
-            this.status.title = status
+            if(typeof status !== 'object') {
+                status = {title: status}
+            }
+            this.status = status
             var vm = this
             // stop previous delay
             window.clearTimeout(this.statusTimeout);
@@ -429,7 +546,7 @@ var app = new Vue({
                 this.statusTimeout = window.setTimeout(function(){
                     // reset to show the total
                     console.log('Notify()', vm.status);
-                    vm.status = {message: vm.status + " found"};
+                    vm.status = {title: vm.status + " found"};
                 }, this.wait * 3);
             }
         }

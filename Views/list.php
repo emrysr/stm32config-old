@@ -35,6 +35,7 @@
         ></grid-data>
 
         <modal v-if="selected!==''":grid-data="gridData" 
+            :samples="samples"
             :selected="selected" 
             @modal:hide = "selected = ''"
             @modal:hidden = ""
@@ -78,40 +79,106 @@ function getTranslations(){
 <script type="text/x-template" id="modal">
     <!-- Modal -->
     <div>
-        <div v-if="entry" class="modal" :class="{'fade': animating || !isShown, 'in': isShown}" tabindex="-1" role="dialog">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-hidden="true" @click.prevent="close">×</button>
-                <h3>More Details {{entry.name}}</h3>
-                <div v-if="loading">
-                    <div class="loader spinner">
-                        <svg class="icon"><use xlink:href="#icon-reload"></use></svg>
+        <transition name="fade">
+            <div v-if="entry" class="modal" :class="{'fade': animating || !isShown, 'in': isShown}" tabindex="-1" role="dialog">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true" @click.prevent="close">×</button>
+                    <h3>More Details {{entry.name}}</h3>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex">
+                        <div class="col-6">
+                            <div class="card">
+                                <form>
+                                    <button class="btn" @click.prevent="set('abc', new Date())">SEND VALUE</button>
+                                    <code>{{xyz | time}}</code>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="card">
+                                <form>
+                                    <button class="btn" @click.prevent="get('abc')">REQUEST VALUE</button>
+                                    <code>{{abc | time}}</code>
+                                </form>
+                            </div>
+                        </div>
                     </div>
-                    <p>{{loading ? 'Loading...': ''}}</p>
+                    <details>
+                        <summary @click.prevent="expand">{{_('Request sample')}}</summary>
+                        <transition name="expand" @after-enter="plot">
+                            <div v-if="isSampleLoaded()">
+                                <div class="d-flex">
+                                    <div>
+                                        <div id="modal-graph" style="width:300px;height:120px;"></div>
+                                    </div>
+                                    <div class="d-flex align-items-stretch flex-fill flex-column px-2">
+                                        <div class="mb-2">
+                                            <button :disabled="loading" @click="reload" class="btn btn-success" @mouseover="mouseOver">
+                                                <svg class="icon"><use xlink:href="#icon-spinner11"></use></svg>
+                                            </button>
+                                            <code>{{getLatestSample().lastUpdate | time}}</code>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <table class="table table-bordered table-condensed">
+                                                <tr>
+                                                    <th scope="row">Min / Max</th>
+                                                    <td scope="col">{{ getMin() }} / {{ getMax() }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th scope="row">{{ _('Mean') }}</th>
+                                                    <td scope="col">{{ getMean() }}</td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </transition>
+                    </details>
+                </div>
+                <div class="modal-footer">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <transition name="fade">
+                            <div v-if="loading" class="spinner-grow spinner-grow-sm text-info" role="status">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                            </transition>
+                        </div>
+                        <div>
+                            <button class="btn" data-dismiss="modal" aria-hidden="true" @click.prevent="close">Close</button>
+                            <button class="btn btn-primary" @click.prevent="save">Save changes</button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="modal-body">
-                <details @toggle="plot">
-                    <summary>Request sample</summary>
-                    <div id="graph" style="width:50%;height:100px;margin: auto"></div>
-                </details>
-            </div>
-            <div class="modal-footer">
-                <button class="btn" data-dismiss="modal" aria-hidden="true" @click.prevent="close">Close</button>
-                <button class="btn btn-primary" @click.prevent="save">Save changes</button>
-            </div>
-        </div>
-        <div v-if="isShown" @click="close" class="modal-backdrop in"></div>
+        </transition>
+        <transition name="spin">
+            <div v-if="isShown" @click="close" class="modal-backdrop in"></div>
+        </transition>
     </div>
 </script>
+
+
 <script>
-    function plot(data){
-        $.plot($("#graph"), data);
+    /**
+     * call jquery flot plugin from within vuejs events
+     */
+    function plot(selector, dataset, options){
+        $.plot($(selector), dataset, options);
     }
 </script>
 
-<link href="<?php echo $path; ?>Lib/bootstrap-datetimepicker-0.0.11/css/bootstrap-datetimepicker.min.css" rel="stylesheet">
-<link href="<?php echo $path; ?>Modules/graph/graph.css?v=<?php echo $v; ?>" rel="stylesheet">
-
+<!-- user language, graph and date format scripts -->
+<script>
+    const _user = {
+        lang : "<?php if (isset($_SESSION['lang'])) echo $_SESSION['lang']; ?>"
+    }
+</script>
+<script src="<?php echo $path; ?>Lib/user_locale.js"></script>
+<script src="<?php echo $path;?>Lib/moment.min.js"></script>
+<!-- graph -->
 <script src="<?php echo $path;?>Lib/flot/jquery.flot.min.js"></script>
 <script src="<?php echo $path;?>Lib/flot/jquery.flot.resize.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
