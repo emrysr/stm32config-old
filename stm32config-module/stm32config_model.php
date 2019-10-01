@@ -256,8 +256,4 @@ class Stm32Config
 
     }
 
-// python calling functions
-    private function send($params) {
-        return $this->stm32api->get($params);
-    }
 }

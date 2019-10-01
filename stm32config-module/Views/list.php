@@ -189,7 +189,7 @@ function getTranslations(){
 
 <!-- debug code -->
 <script>
-    _SETTINGS.showErrors = false
+    _SETTINGS.showErrors = true
 
     if(!_SETTINGS.showErrors) {
         Vue.config.productionTip = true;
