@@ -8,8 +8,10 @@ Vue.component("modal", {
         return {
             animating: false,
             loading: false,
-            xyz: new Date,// used as stm write response
-            abc: new Date// used as stm read response
+            message: '', // used to display api repsonse messages
+            messageTimeout: false,
+            xyz: new Date, // used as stm write response (dev only)
+            abc: new Date, // used as stm read response (dev only),
         }
     },
     filters: {
@@ -71,7 +73,7 @@ Vue.component("modal", {
                 // call jquery addon with the correct args
                 plot(selector, latest.dataset);
             } else {
-                console.log('no data to plot or no placeholder')
+                console.error('No data to plot or no placeholder')
             }
         },
         getMin: function() {
@@ -84,7 +86,7 @@ Vue.component("modal", {
                     min = point
                 }
             }
-            return min.toFixed(3)
+            return min ? min.toFixed(3): ''
         },
         getMax: function() {
             if(!this.samples[this.selected]) return 0;
@@ -96,7 +98,7 @@ Vue.component("modal", {
                     max = point
                 }
             }
-            return max.toFixed(3)
+            return max ? max.toFixed(3): ''
         },
         getMean: function() {
             if(!this.samples[this.selected]) return 0;
@@ -110,7 +112,12 @@ Vue.component("modal", {
             }
             return (sum/points.length).toFixed(3)
         },
-        reload: function(event) {
+        /**
+         * load sample data from STM32 api
+         * @param {Object} event DOM Event
+         * 
+         */
+        reload_sample: function(event) {
             // @todo: ajax request to api
             var vm = this;
             var dropdown = event.target.parentNode;
@@ -118,31 +125,52 @@ Vue.component("modal", {
             this.loading = true;
             this.$emit('loading', event);
 
-            setTimeout(function(){
-                vm.loading = false;
-                vm.$emit('loaded', event);
+            var start = new Date();
+
+            var request = stm32config.sample({
+                id: vm.selected
+            })
+            .done(function(response,status,xhr) {
                 // cache api responses
                 if (typeof vm.samples[vm.selected] !== 'object') {
                     vm.samples[vm.selected] = {}
                 }
-                var d1 = [];
-                for (var i = 0; i < 14; i += 0.5) {
-                    d1.push([i, Math.sin(i+=Math.random())]);
-                }
+
+                var dataset = [response.data[0]];
+                
                 vm.samples[vm.selected] = {
-                    dataset: [d1],
+                    dataset: dataset,
                     lastUpdate: new Date(),
                     success: true
                 }
                 dropdown.open = true;
                 vm.plot();
-            }, 500)
+
+                vm.message = (new Date().getTime() - start.getTime()) + 'ms'
+                
+            }).fail(function(xhr, response) {
+                // todo: display error to user
+                vm.message = 'Error';
+                console.error(response);
+
+            }).always(function() {
+                // switch off loading state if success or fail
+                vm.loading = false;
+                vm.$emit('loaded');
+
+                // reset the message to blank after 2s
+                clearTimeout(vm.messageTimeout)
+                vm.messageTimeout = setTimeout(function(){
+                    vm.message = ''
+                }, 2000)
+            });
+            return request;
         },
         expand: function(event) {
             var dropdown = event.target.parentNode;
             if(!dropdown.open) {
                 if(!this.isSampleLoaded()) {
-                    this.reload(event)
+                    this.reload_sample(event)
                 } else {
                     // already loaded do nothing but expand
                     dropdown.open = true;
@@ -156,56 +184,106 @@ Vue.component("modal", {
             //fields auto save
             //todo: 
         },
-        get: function(prop,id) {
-            // return api response from getting property prop
-            this.loading = true;
+        // return js api response from getting property prop
+        get: function(prop, id) {
+            if (!prop) prop = '';
+            if (!id) id = '';
             var vm = this;
-            this.$emit('loading');
-            var request = stm32config.get(prop,id);
-            request.done(function(response) {
-                // console.log('done', request.url, response.data);
-                vm[prop] = moment.unix(response.data.value);
-            });
-            request.fail(function(xhr, response) {
-                console.error(response);
-            });
-            request.always(function() {
-                vm.loading = false;
-                vm.$emit('loaded');
-            });
-        },
-        set: function(prop,id,value) {
-            // return api response from setting property prop
+            // show the loading animation
             this.loading = true;
-            var vm = this;
             this.$emit('loading');
-            var request = stm32config.set({
-                properties: [prop],
-                values: [value],
+            // send the ajax request and respond to results
+            var request = stm32config.get({
+                properties: prop,
                 id: id
-            });
-            request.done(function(response,status,xhr) {
-                // console.log('done', response, status, xhr);
-                vm[prop] = moment.unix(response.data.value);
-            });
-            request.fail(function(xhr, response) {
+            }).done(function(response,status,xhr) {
+                // set the vue machine (vm) variables to the returned api response values
+                // eg:
+                vm[prop] = response.data[0][prop];
+                vm.message = response.res.message;
+                setTimeout(function(){
+                    vm.message = ''
+                }, 2000)
+            }).fail(function(xhr, response) {
+                // todo: display error to user
                 console.error(response);
-            });
-            request.always(function() {
+            }).always(function() {
+                // switch off loading state if success or fail
                 vm.loading = false;
                 vm.$emit('loaded');
+
+                // reset the message to blank after 2s
+                clearTimeout(vm.messageTimeout)
+                vm.messageTimeout = setTimeout(function(){
+                    vm.message = ''
+                }, 2000)
             });
+            return request;
         },
+        // return js api response from setting property prop
+        set: function(prop, id, value) {
+            if (!prop) prop = '';
+            if (!id) id = '';
+            if (!value) value = '';
+            var vm = this;
+            // show the loading animation
+            this.loading = true;
+            this.$emit('loading');
+            // send the ajax request and respond to results
+            var request = stm32config.set({
+                properties: prop,
+                values: value,
+                id: id
+            }).done(function(response,status,xhr) {
+                // set the vue machine (vm) variables to the returned api response values
+                // eg:
+                vm[prop] = moment.unix(response.res.value);
+                vm.message = response.res.message;
+                setTimeout(function(){
+                    vm.message = ''
+                }, 2000)
+            }).fail(function(xhr, response) {
+                // todo: display error to user
+                console.error(response);
+            }).always(function() {
+                // switch off loading state if success or fail
+                vm.loading = false;
+                vm.$emit('loaded');
+
+                // reset the message to blank after 2s
+                clearTimeout(vm.messageTimeout)
+                vm.messageTimeout = setTimeout(function(){
+                    vm.message = ''
+                }, 2000)
+            });
+            return request;
+        },
+        // example wrapper function for single property
         set_abc: function() {
+            var start = new Date();
             this.set('abc', '1', moment().unix())
+            .done(function() {
+                // this.set() returns jquery ajax promise.
+                // you can run code on done/fail/always/progress etc
+                console.log('example function.', 'took:', (new Date().getTime() - start.getTime()),'ms');
+            })
         },
+        // example wrapper function for getting single value via the stm32 api
         get_abc: function() {
-            this.get('abc')
+            var start = new Date();
+            this.get('abc', 1)
+            .always(function() {
+                // this.set() returns jquery ajax promise.
+                // you can run code on done/fail/always/progress etc
+                console.log('example function.', 'took:', (new Date().getTime() - start.getTime()),'ms');
+            })
         },
+        // return the sample for the currently selected item
         getLatestSample: function() {
             if(!this.samples && !this.selected && !this.samples[this.selected]) return false;
             return this.samples[this.selected] || {success: false};
         },
+        // return true if data loaded for currently selected item
         isSampleLoaded: function() {
             var latest = this.getLatestSample()
             if(typeof latest !== 'undefined') {
@@ -355,7 +433,7 @@ var app = new Vue({
         }
     },
     mounted: function () {
-        this.reload();
+        this.reload_list();
     },
     created: function () {
         _debug.log('list app created()')
@@ -371,22 +449,25 @@ var app = new Vue({
         });
     },
     methods: {
-        reload: function () {
+        /**
+         * reload STM32 input list
+         */
+        reload_list: function () {
             this.loading = true;
             // on load request server data
             let vm = this;
             vm.Notify(_('Loading...'), true);
-            stm32config.list().then(function(data){
+            stm32config.list().then(function(response){
                 // handle success - populate gridData[] array
                 // add urls for edit and view
-                data.forEach(function(v,i) {
-                    if(typeof data[i] === 'object') {
-                        let id = data[i].id;
-                        data[i].view = path + 'stm32config/view?id=' + id;
-                        data[i].edit = path + 'stm32config/edit?id=' + id;
+                for(var i in response.data) {
+                    var item = response.data[i];
+                    if(typeof item === 'object') {
+                        item.view = path + 'stm32config/view?id=' + item.id;
+                        item.edit = path + 'stm32config/edit?id=' + item.id;
                     }
-                });
-                vm.gridData = data;
+                };
+                vm.gridData = response.data;
     
             }, function(xhr,message){
                 vm.Notify = ({
@@ -512,7 +593,6 @@ var app = new Vue({
         Set_field: function(event, item, id, field, value, success, error) {
             // sanitize input
             // @todo: more work could be done to check all the possible inputs
-            console.log('emrys')
             switch(typeof value) {
                 case 'string':
                     _value = value.trim();

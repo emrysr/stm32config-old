@@ -40,8 +40,8 @@ var stm32config = {
             url: path + "stm32config/set.json",
             data: {
                 id: options.id,
-                properties: JSON.stringify(options.properties),
-                values: JSON.stringify(options.values),
+                properties: options.properties,
+                values: options.values,
             }
         });
     },
@@ -50,12 +50,21 @@ var stm32config = {
      * @param {object} options {properties,id}
      * @return {object} ajax promise
      */
-    get: function(options){
+    get: function(options) {
         return stm32config._fetch({
-            url: path + "stm32config/set.json",
+            url: path + "stm32config/get.json",
             data: {
-                id: id,
-                properties: JSON.stringify(options.properties)
+                id: options.id,
+                properties: options.properties
+            }
+        });
+    },
+    
+    sample: function(options) {
+        return stm32config._fetch({
+            url: path + "stm32config/sample.json",
+            data: {
+                id: options.id
             }
         });
     },

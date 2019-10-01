@@ -44,20 +44,33 @@ function stm32config_controller()
             return $config->getAll();
         }
         elseif ($route->action === 'set') {
-            $properties = json_decode(get('properties'));
+            $properties = get('properties');
             $id = get('id');
-            $values = json_decode(get('values'));
+            $values = get('values');
             $params = array(
-                'properties' => $properties,
                 'id' => $id,
+                'properties' => $properties,
                 'values' => $values
             );
             return $config->set($params);
         }
         elseif ($route->action === 'get') {
-            $prop = 'time';
-            $id = 1; 
-            return $config->get($prop,$id);
+            $properties = get('properties');
+            $id = get('id');
+            $params = array(
+                'id' => $id,
+                'properties' => $properties
+            );
+            return $config->get($params);
+        }
+        elseif ($route->action === 'sample') {
+            $properties = get('properties');
+            $id = get('id');
+            $params = array(
+                'id' => $id,
+                'properties' => $properties
+            );
+            return $config->sample($params);
         }
     }
     return array('content' => $result);

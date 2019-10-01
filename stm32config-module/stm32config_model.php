@@ -21,7 +21,9 @@ interface RequestFactoryInterface
      * Create a new request.
      *
      * @param string $method The HTTP method associated with the request.
-     * @param UriInterface|string $uri The URI associated with the request. 
+     * @param UriInterface|string $uri The URI associated with the request.
+     * 
+     * @ignore not used because the API used does not respond to HTTP requests
      */
     public function createRequest(string $method, $uri): RequestInterface;
 }
@@ -36,8 +38,10 @@ class Stm32Config
      */
     public function __construct()
     {
-        $this->ready = true;
-        $this->stm32api = null;
+        $this->ready = true; // once all loaded this is set to true
+        $this->stm32api = null; // api class instance to be used by all the methods
+        $this->returnCommand = true; // see the system command executed by the api
+        $this->returnResponseText = true; // see the unaltered text returned by the api
     }
 
     /**
@@ -47,15 +51,33 @@ class Stm32Config
      */
     public function getAll()
     {
-        return array(
-            array("id"=>1,"port"=>"CT1","name"=>"CT1","calibration"=>"SCT013","voltage"=>"v1","power"=>"200W","realPower"=>true,"actualPower"=>false,"current"=>false),
-            array("id"=>2,"port"=>"CT2","name"=>"CT2","calibration"=>"SCT013","voltage"=>"v3","power"=>"100W","realPower"=>false,"actualPower"=>true,"current"=>false),
-            array("id"=>3,"port"=>"CT3","name"=>"CT3","calibration"=>"SCT013","voltage"=>null,"power"=>"30W","realPower"=>false,"actualPower"=>false,"current"=>true),
-            array("id"=>4,"port"=>"CT4","name"=>"CT4","calibration"=>"SCT013","voltage"=>null,"power"=>"30W","realPower"=>false,"actualPower"=>false,"current"=>false),
-            array("id"=>5,"port"=>"CT5","name"=>"CT5","calibration"=>"SCT013","voltage"=>null,"power"=>"30W","realPower"=>false,"actualPower"=>true,"current"=>false),
-            array("id"=>6,"port"=>"CT6","name"=>"CT6","calibration"=>"SCT013","voltage"=>null,"power"=>"30W","realPower"=>false,"actualPower"=>true,"current"=>false),
-            array("id"=>7,"port"=>"CT7","name"=>"CT7","calibration"=>"SCT013","voltage"=>null,"power"=>"30W","realPower"=>false,"actualPower"=>false,"current"=>false),
-        );
+        require "Modules/stm32config/Lib/stm32api.php";
+        $this->stm32api = new Stm32api();
+        $api_responseText = $this->stm32api->list();
+        $api_response = json_decode($api_responseText, true); // get list of values from SMT32 via python api
+        if ($api_response) {
+            $response = array();
+            $response['success'] = $api_response['success'];
+            $response['data'] = $api_response['data'];
+            $response['action'] = $api_response['action'];
+            $response['message'] = $api_response['message'];
+            $response['connection'] = $api_response['connection'];
+
+            if($this->returnCommand) {
+                $response['command'] = $api_response['command'];
+            }
+            if($this->returnResponseText) {
+                $response['responseText'] = $api_responseText;
+            }
+            return $response;
+
+        } else {
+            return array(
+                'message' => 'API response not in correct format',
+                'success' => false,
+                'responseText' => $api_responseText
+            );
+        }
     }
 
     /**
@@ -67,36 +89,54 @@ class Stm32Config
     public function get($params)
     {
         global $route;
-        $id = $params['id'];
-        $properties = $params['properties'];
-        $values = array();
+        require "Modules/stm32config/Lib/stm32api.php";
+        $this->stm32api = new Stm32api();
 
-        /*
-        ------------------
-        put stm32 api code here to set the $values array
-        ------------------
-        eg:-
-        $item = $this->send("GET $id");
-        $values[$prop] = $item[$prop];
-        */
-        
-        // fake the result until STM32 api created
-        foreach($properties as $prop) {
-            $values[] = time();
-        }
-        return array(
-            'success' => true,
-            'req' => array (
-                'url' => $route->controller,
-                'action' => $route->action,
-                'params' => $params
-            ),
-            'data' => array (
-                'id'=> $id,
-                'properties'=> $properties,
-                'values' => $values
-            )
+        $req = array(
+            'controller' => $route->controller,
+            'action' => $route->action,
+            'params' => $params,
         );
+        // @todo : multi property set
+        $api_responseText = $this->stm32api->get($params);
+        
+        // parse response as JSON. returns null on error
+        $api_response = json_decode($api_responseText, true);
+
+        if($api_response) {
+            $res = array();
+            if($this->returnCommand) {
+                $res['command'] = $api_response['command'];
+            }
+            if($this->returnResponseText) {
+                $res['responseText'] = $api_responseText;
+            }
+            $res['message'] = $api_response['message'];
+            
+            $response = array();
+
+            if($api_response['success']) {
+                $res["property"] = $api_response['property'];
+                $res["id"] = $api_response['id'];
+                $res["connection"] = $api_response['connection'];
+
+                $response['data'] = $api_response['data'];
+            }
+
+            $response['success'] = $api_response['success'];
+            $response['req'] = $req;
+            $response['res'] = $res;
+
+            return $response;
+
+        } else {
+            return array(
+                'message' => 'API response not in correct format',
+                'success' => false,
+                'responseText' => $api_responseText
+            );
+        }
+
     }
     
     /**
@@ -110,26 +150,110 @@ class Stm32Config
         global $route;
         require "Modules/stm32config/Lib/stm32api.php";
         $this->stm32api = new Stm32api();
-var_dump($this->stm32api);
-exit('dave');
-        $id = $params['id'];
-        $properties = $params['properties'];
-        $values = $params['values'];
 
-        $api_response = $this->stm32api->set(array(
-            'id' => $id,
-            'properties' => $properties,
-            'values' => $values
-        ));
-        return array(
-            'success' => true,
-            'req' => array (
-                'controller' => $route->controller,
-                'action' => $route->action,
-                'params' => $params
-            ),
-            'data' => $api_response
+        $req = array(
+            'controller' => $route->controller,
+            'action' => $route->action,
+            'params' => $params,
         );
+        // @todo : multi property set
+        $api_responseText = $this->stm32api->set($params);
+        
+        // parse response as JSON. returns null on error
+        $api_response = json_decode($api_responseText, true);
+
+        if($api_response) {
+            $res = array();
+            if($this->returnCommand) {
+                $res['command'] = $api_response['command'];
+            }
+            if($this->returnResponseText) {
+                $res['responseText'] = $api_responseText;
+            }
+            $res['message'] = $api_response['message'];
+            
+            $response = array();
+
+            if($api_response['success']) {
+                $res["property"] = $api_response['property'];
+                $res["value"] = $api_response['value'];
+                $res["id"] = $api_response['id'];
+                $res["connection"] = $api_response['connection'];
+
+                $response['data'] = $api_response['data'];
+            }
+
+            $response['success'] = $api_response['success'];
+            $response['req'] = $req;
+            $response['res'] = $res;
+
+            return $response;
+            
+        } else {
+            return array(
+                'message' => 'API response not in correct format',
+                'success' => false,
+                'responseText' => $api_responseText
+            );
+        }
+    }
+    
+    /**
+     * get the property values of an item by id
+     *
+     * @param object $params {properties,id}
+     * @return void
+     */
+    public function sample($params)
+    {
+        global $route;
+        require "Modules/stm32config/Lib/stm32api.php";
+        $this->stm32api = new Stm32api();
+
+        $req = array(
+            'controller' => $route->controller,
+            'action' => $route->action,
+            'params' => $params,
+        );
+        // @todo : multi property set
+        $api_responseText = $this->stm32api->sample($params);
+        
+        // parse response as JSON. returns null on error
+        $api_response = json_decode($api_responseText, true);
+
+        if($api_response) {
+            $res = array();
+            if($this->returnCommand) {
+                $res['command'] = $api_response['command'];
+            }
+            if($this->returnResponseText) {
+                $res['responseText'] = $api_responseText;
+            }
+            $res['message'] = $api_response['message'];
+            
+            $response = array();
+
+            if($api_response['success']) {
+                $res["id"] = $api_response['id'];
+                $res["connection"] = $api_response['connection'];
+
+                $response['data'] = $api_response['data'];
+            }
+
+            $response['success'] = $api_response['success'];
+            $response['req'] = $req;
+            $response['res'] = $res;
+
+            return $response;
+
+        } else {
+            return array(
+                'message' => 'API response not in correct format',
+                'success' => false,
+                'responseText' => $api_responseText
+            );
+        }
+
     }
 
 // python calling functions

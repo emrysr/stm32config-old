@@ -11,7 +11,7 @@
         <div class="d-flex justify-content-between my-3">
             <h2 class="m-0">
                 <?php echo _('STM32 Config') ?> <svg class="icon text-info"><use xlink:href="#icon-stm32"></use></svg> 
-                <a v-if="gridData.length === 0" href="<?php echo $path ?>stm32config" class="btn btn-success btn-small" :title="_('Reload') + '&hellip;'" @click.prevent="reload()">
+                <a v-if="gridData.length === 0" href="<?php echo $path ?>stm32config" class="btn btn-success btn-small" :title="_('Reload') + '&hellip;'" @click.prevent="reload_list()">
                 <svg class="icon"><use xlink:href="#icon-spinner11"></use></svg></a>
             </h2>
             <form v-if="gridData.length > 0" id="search" class="form-inline m-0">
@@ -83,14 +83,18 @@ function getTranslations(){
             <div v-if="entry" class="modal" :class="{'fade': animating || !isShown, 'in': isShown}" tabindex="-1" role="dialog">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal" aria-hidden="true" @click.prevent="close">×</button>
-                    <h3>More Details {{entry.name}}</h3>
+                    <h3>More Details {{entry.name}}
+                        <transition name="fade">
+                            <small class="muted" v-if="message!==''">{{message}}</small>
+                        </transition>
+                    </h3>
                 </div>
                 <div class="modal-body">
                     <div class="d-flex">
                         <div class="col-6">
                             <div class="card">
                                 <form>
-                                    <button class="btn" @click.prevent="set_abc()">SEND VALUE</button>
+                                    <button :disabled="loading" class="btn" @click.prevent="set_abc()">SEND VALUE</button>
                                     <code>{{abc | time}}</code>
                                 </form>
                             </div>
@@ -98,7 +102,7 @@ function getTranslations(){
                         <div class="col-6">
                             <div class="card">
                                 <form>
-                                    <button class="btn" @click.prevent="get('abc')">REQUEST VALUE</button>
+                                    <button :disabled="loading" class="btn" @click.prevent="get_abc()">REQUEST VALUE</button>
                                     <code>{{abc | time}}</code>
                                 </form>
                             </div>
@@ -114,7 +118,7 @@ function getTranslations(){
                                     </div>
                                     <div class="d-flex align-items-stretch flex-fill flex-column px-2">
                                         <div class="mb-2">
-                                            <button :disabled="loading" @click="reload" class="btn btn-success" @mouseover="mouseOver">
+                                            <button :disabled="loading" @click="reload_sample" class="btn btn-success" @mouseover="mouseOver">
                                                 <svg class="icon"><use xlink:href="#icon-spinner11"></use></svg>
                                             </button>
                                             <code>{{getLatestSample().lastUpdate | time}}</code>
